@@ -1,0 +1,4 @@
+--compilers coffee:coffeescript/register
+
+--timeout 2500
+test/index.coffee
