@@ -46,10 +46,11 @@ module.exports = (work, options) => new Promise (resolve, reject) =>
     workers = Math.min(remaining, (options.concurrency or require("os").cpus().length))
     work = shuffle(work) unless options.shuffle == false
     chunks = chunkify(work, Math.max(workers, remaining / Math.sqrt(2)) )
+    current = 0
     if options.onText?
       options.silent ?= true
     for i in [0..workers]
-      worker = fork(_worker, [path.resolve(options.worker)], options)
+      worker = fork(_worker, [path.resolve(options.worker), "--colors"], options)
       if (onText = options.onText)?
         ["stdout","stderr"].forEach (std) =>
           std = worker[std]
@@ -65,7 +66,8 @@ module.exports = (work, options) => new Promise (resolve, reject) =>
           remaining -= count
           options.onProgress?(remaining)
         if pieces
-          w.send pieces
+          w.send pieces: pieces, current: current, length: work.length
+          current += pieces.length
         else
           i--
           w.disconnect()

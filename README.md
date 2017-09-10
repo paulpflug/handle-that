@@ -30,7 +30,8 @@ handleThat(["work1","work2"],{
 // ./someWorker.js
 // expects a function which is called with an array of work pieces
 // should return a Promise
-module.exports = work => { return Promise.all(work.map(async piece => {
+module.exports = (work, current, altogetherWorkCount) => { return Promise.all(work.map(async (piece,i) => {
+  currentWorkIndex = current+i
   // piece is either "work1" or "work2"
   return await doSomething(piece)
 }))}
