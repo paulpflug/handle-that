@@ -51,12 +51,13 @@ module.exports = (work, options) => new Promise (resolve, reject) =>
     for i in [0..workers]
       worker = fork(_worker, [path.resolve(options.worker)], options)
       if (onText = options.onText)?
-        std = worker.stdout
-        std.setEncoding("utf8")
-        std.on "data", (data) =>
-          lines = data.split("\n")
-          lines.pop() if lines[lines.length-1] == ""
-          onText(lines)
+        ["stdout","stderr"].forEach (std) =>
+          std = worker[std]
+          std.setEncoding("utf8")
+          std.on "data", (data) =>
+            lines = data.split("\n")
+            lines.pop() if lines[lines.length-1] == ""
+            onText(lines)
       options.onFork?(worker)
       worker.on "message", ((w, count) => 
         pieces = chunks.shift()
