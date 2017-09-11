@@ -58,7 +58,7 @@ module.exports = (work, options) => new Promise (resolve, reject) =>
           std.on "data", (data) =>
             lines = data.split("\n")
             lines.pop() if lines[lines.length-1] == ""
-            onText(lines)
+            onText(lines, remaining)
       options.onFork?(worker)
       worker.on "message", ((w, count) => 
         pieces = chunks.shift()

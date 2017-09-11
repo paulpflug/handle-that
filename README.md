@@ -58,16 +58,16 @@ path = require("path")
 ora = require("ora")
 handleThat = require("handle-that")
 
-spinner = ora((remaining = work.length) + " workpieces remaining...").start()
+spinner = ora(work.length + " workpieces remaining...").start()
 
 handleThat(work,{
   worker: path.resolve(__dirname, "_worker"),
-  onText: (lines) => {
+  onText: (lines, remaining) => {
     spinner.stop()
     console.log(lines.join("\n"))
     spinner.start(remaining + " workpieces remaining...")
   },
-  onProgress: (count) => { spinner.text = (remaining = count) + " workpieces remaining..." }
+  onProgress: (remaining) => { spinner.text = remaining  + " workpieces remaining..." }
   onFinish: => { spinner.succeed("finished") }
 })
 ```
