@@ -10,19 +10,48 @@ flatten = (arrs) =>
       target.push arr
   return target
 
-chunkify = (a, n) =>
-  return [a] if n < 2
-  len = a.length
+chunkify = (arr, n) =>
+  return [arr] if n < 2
+  len = arr.length
   out = []
   i = 0
   if len % n == 0
     size = Math.floor(len / n)
     while (i < len) 
-      out.push(a.slice(i, i += size))
+      out.push(arr.slice(i, i += size))
   else
     while (i < len) 
       size = Math.ceil((len - i) / n--)
-      out.push(a.slice(i, i += size))
+      out.push(arr.slice(i, i += size))
+  return out
+
+chunkifyObj = (prop, arr, n) =>
+  if n < 2
+    o = arr[0]
+    tmp = o.length = o[prop]
+    o["_"+prop] = [0...tmp]
+    return [o]
+  len = arr.reduce ((acc, cur) => acc + cur[prop]), 0
+  sorted = arr.sort (a,b) => a[prop] - b[prop]
+  out = []
+  for piece in sorted
+    size = Math.ceil(len / n)
+    len -= (tmp = piece[prop])
+    if piece[prop] <= size 
+      piece.length = tmp
+      piece["_"+prop] = [0...tmp]
+      n--
+      out.push piece
+    else
+      count = Math.ceil(tmp / size)
+      n -= count
+      size = Math.ceil(tmp / count) 
+      for i in [0...count]
+        tmp2 = [size*i...Math.min(tmp,size*(i+1))]
+        curr = Object.assign length: tmp2.length, piece
+        curr["_"+prop] = tmp2
+        curr[prop] = tmp2.length
+        out.push curr
   return out
 
 shuffle = (array) =>
@@ -42,14 +71,27 @@ else
 module.exports = (work, options) => new Promise (resolve, reject) =>
   reject new Error "handle-that: no worker defined" unless options?.worker
   work = flatten(work) unless options.flatten == false
-  if (remaining = work.length) > 0
-    workers = Math.min(remaining, (options.concurrency or require("os").cpus().length))
-    work = shuffle(work) unless options.shuffle == false
-    chunks = chunkify(work, Math.max(workers, remaining / Math.sqrt(2)) )
+  getLen = (arr) =>
+    if (prop = options.object)
+      arr.reduce ((acc, cur) => acc + cur[prop]), 0
+    else
+      arr.length
+  if (total = remaining = getLen(work)) > 0
     current = 0
+    work = shuffle(work) unless options.shuffle == false
+    neededWorkers = Math.min(remaining, (options.concurrency or require("os").cpus().length))
+    c = options.chunkify
+    unless c?
+      if options.object
+        c = chunkifyObj.bind(null,options.object)
+      else
+        c = chunkify
+    work = c(work, Math.max(neededWorkers, remaining / Math.sqrt(2)) )
     if options.onText?
       options.silent ?= true
-    for i in [0..workers]
+    options.cwd ?= process.cwd()
+    options.end ?= process.env
+    for i in [0...neededWorkers]
       worker = fork(_worker, [path.resolve(options.worker), "--colors"], options)
       if (onText = options.onText)?
         ["stdout","stderr"].forEach (std) =>
@@ -60,24 +102,29 @@ module.exports = (work, options) => new Promise (resolve, reject) =>
             lines.pop() if lines[lines.length-1] == ""
             onText(lines, remaining)
       options.onFork?(worker)
-      worker.on "message", ((w, count) => 
-        pieces = chunks.shift()
-        if count
-          remaining -= count
-          options.onProgress?(remaining)
-        if pieces
-          w.send pieces: pieces, current: current, length: work.length
-          current += pieces.length
-        else
-          i--
+      worker.on "message", ((w, {done, cancel}) =>
+        if cancel
           w.disconnect()
-          if i == 0
+          if --neededWorkers == 0
             options.onFinish?()
             resolve()
+        else if done?
+          pieces = work.pop()
+          if done
+            remaining -= done
+            options.onProgress?(remaining) if remaining > 0
+            if remaining == 0
+              options.onFinish?()
+              resolve()
+          if pieces
+            w.send pieces: pieces, current: current, length: total
+            current += pieces.length
+          else
+            --neededWorkers
+            w.disconnect()
         ).bind(null, worker)
   else
-    options.onFinish?()
-    resolve()
+    finish()
 
 module.exports.shuffle = shuffle
 module.exports.chunkify = chunkify
