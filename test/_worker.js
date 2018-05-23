@@ -1,3 +1,8 @@
 module.exports = (work) => {
-  console.log(work)
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      console.log(JSON.stringify(work))
+      resolve()
+    }, 200);
+  })
 }

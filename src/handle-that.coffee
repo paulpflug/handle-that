@@ -78,7 +78,10 @@ module.exports = (work, options) => new Promise (resolve, reject) =>
       arr.length
   if (total = remaining = getLen(work)) > 0
     current = 0
-    work = shuffle(work) unless options.shuffle == false
+    unless options.shuffle == false
+      work = shuffle(work)
+    else
+      work.reverse()
     neededWorkers = Math.min(remaining, (options.concurrency or require("os").cpus().length))
     c = options.chunkify
     unless c?
@@ -88,7 +91,7 @@ module.exports = (work, options) => new Promise (resolve, reject) =>
         c = chunkify
     work = c(work, Math.max(neededWorkers, remaining / Math.sqrt(2)) )
     if options.onText?
-      options.silent ?= true
+      options.silent = true
     options.cwd ?= process.cwd()
     options.end ?= process.env
     for i in [0...neededWorkers]
