@@ -68,16 +68,14 @@ if path.extname(__filename) == ".coffee"
 else
   _worker = "#{__dirname}/_worker.js"
 
-module.exports = (work, options) => new Promise (resolve, reject) =>
-  reject new Error "handle-that: no worker defined" unless options?.worker
+processWork = (work, options) =>
   work = flatten(work) unless options.flatten == false
   getLen = (arr) =>
     if (prop = options.object)
       arr.reduce ((acc, cur) => acc + cur[prop]), 0
     else
       arr.length
-  if (total = remaining = getLen(work)) > 0
-    current = 0
+  if (remaining = getLen(work)) > 0
     unless options.shuffle == false
       work = shuffle(work)
     else
@@ -90,6 +88,13 @@ module.exports = (work, options) => new Promise (resolve, reject) =>
       else
         c = chunkify
     work = c(work, Math.max(neededWorkers, remaining / Math.sqrt(2)) )
+  return [remaining, neededWorkers, work]
+
+module.exports = (work, options) => new Promise (resolve, reject) =>
+  reject new Error "handle-that: no worker defined" unless options?.worker
+  [remaining, neededWorkers, work] = processWork(work, options)
+  if (total = remaining) > 0
+    current = 0
     if options.onText?
       options.silent = true
     options.cwd ?= process.cwd()
@@ -126,9 +131,14 @@ module.exports = (work, options) => new Promise (resolve, reject) =>
             --neededWorkers
             w.disconnect()
         ).bind(null, worker)
+      worker.on "exit", (code) =>
+        if code == 1
+          reject(new Error "Worker exited unexpectedly")
   else
     finish()
 
 module.exports.shuffle = shuffle
 module.exports.chunkify = chunkify
+module.exports.chunkifyObj = chunkifyObj
 module.exports.flatten = flatten
+module.exports.processWork = processWork
